@@ -1,18 +1,19 @@
-# Personal Docker Dev Environment
+# Simple Docker Environment
 
-This is a minimal Docker setup for local development with automatic cleanup and volume mounting. It is designed to be simple and beginner-friendly.
+This is a minimal and flexible Docker setup for launching isolated Linux environments easily. It can be used for development, cybersecurity work, experimentation, or any other purpose. It includes automatic cleanup, volume mounting, and reusable configurations.
 
 ## How to Use
 
 1. Place your project files inside the `src/` folder.
-2. Open PowerShell in the root project folder (where the `.ps1` file is).
-3. Run this command:
+2. Open the project folder.
+3. Run the environment using the batch file:
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\dev.ps1
+```cmd
+run-env.bat
 ```
 
 This will:
+
 - Build the Docker image using the Dockerfile
 - Run a container using docker-compose
 - Mount the `src/` folder as `/app` inside the container
@@ -24,95 +25,82 @@ This will:
 
 ```
 my-docker-project/
-├── Dockerfile             # Defines the container environment (OS, installed packages, etc)
-├── docker-compose.yml     # Manages the container setup and runtime configuration
-├── dev.ps1                # PowerShell script to launch everything easily
-├── README.md              # This documentation file
-└── src/                   # Your working directory, mapped to the container
-    └── (your files)       # Code, Makefiles, data, etc — all persist outside the container
+├── Dockerfile              # The active environment definition
+├── docker-compose.yml      # Docker Compose configuration
+├── run-env.bat             # Batch script for launching from Windows
+├── README.md               # This documentation file
+├── src/                    # Shared folder with the container
+│   └── (your files)
+└── ready-env/              # Pre-configured environments (backups/templates)
+    ├── kali-full/
+    │   ├── Dockerfile
+    │   └── docker-compose.yml # optional
+    ├── kali-minimal/
+    │   ├── Dockerfile
+    │   └── docker-compose.yml # optional
+    └── alpine-base/
+        ├── Dockerfile
+        └── docker-compose.yml # optional
 ```
 
-- `my-docker-project/` is the root folder of the setup.
-- Everything inside `src/` is shared with the container and stays on your machine.
-- The container itself is temporary — it disappears when you exit.
+- `ready-env/` holds different environment presets.
+- Each subfolder inside `ready-env/` contains a `Dockerfile` (and optionally a `docker-compose.yml`).
+- To activate a different environment, copy its Dockerfile and optionally docker-compose.yml into the root folder.
+
+## Switching Environments
+
+When you want to switch to a saved environment:
+
+```powershell
+copy .\ready-env\kali-full\Dockerfile .\Dockerfile
+copy .\ready-env\kali-full\docker-compose.yml .\docker-compose.yml
+```
+
+Then run:
+
+```cmd
+run-env.bat
+```
 
 ## File Roles
 
 ### Dockerfile
-Defines the base image and what is installed in the container.
 
-```Dockerfile
-FROM ubuntu
-RUN apt update && apt install -y build-essential
-WORKDIR /app
-CMD ["/bin/bash"]
-```
-
-- `FROM ubuntu`: Use the official Ubuntu image.
-- `RUN apt update && ...`: Installs basic tools like `gcc`, `make`.
-- `WORKDIR /app`: Sets the default folder when container starts.
-- `CMD ["/bin/bash"]`: Starts a shell session by default.
+Defines the base image and what is installed in the container. Split into logical layers to optimize rebuild time.
 
 ### docker-compose.yml
-Defines how the container is run.
 
-```yaml
-version: '3.8'
-services:
-  devbox:
-    build: .
-    container_name: my-dev-container
-    volumes:
-      - ./src:/app
-    working_dir: /app
-    stdin_open: true
-    tty: true
-```
+Defines how the container is run — mapped folders, working directory, interactive shell settings, etc.
 
-- `build: .`: Builds the image using the Dockerfile in current folder.
-- `volumes`: Mounts your local `src/` as `/app` inside the container.
-- `working_dir`: Sets `/app` as the shell location when container starts.
-- `stdin_open`, `tty`: Enables interactive shell access.
-- `--rm` (used later) ensures the container is deleted on exit.
+### run-env.bat
 
-### dev.ps1
-A helper script for Windows (PowerShell) that runs everything with one command.
+Batch file for easy execution on Windows.
 
-```powershell
-Write-Host "Building image..."
-docker-compose build
-Write-Host "Starting container..."
-docker-compose run --rm devbox
-```
+### ready-env/
 
-- First builds the image.
-- Then starts the container interactively.
-- Uses `--rm` so the container is cleaned up automatically.
+A collection of reusable Docker environments — used as backups or quick start templates.
 
 ## Using Different Base Images
 
-You can change the OS or environment by modifying the `FROM` line in `Dockerfile`:
+You can change the OS or environment by modifying the `FROM` line in your Dockerfile, or by switching to a different template from `ready-env`.
 
 Examples:
-```Dockerfile
-FROM kalilinux/kali-rolling      # Security tools
-FROM debian                      # Debian Linux base
-FROM alpine                      # Minimal Linux (lightweight, advanced users)
-```
 
-After making changes, rebuild the image:
-```powershell
-powershell -ExecutionPolicy Bypass -File .\dev.ps1
+```Dockerfile
+FROM kalilinux/kali-rolling
+FROM debian
+FROM alpine
 ```
 
 ## Cleanup
-- No manual cleanup is required.
-- The container is automatically removed when you exit the shell.
-- Your files in `src/` stay untouched.
 
-If you want to remove the built image manually:
+- Containers are removed automatically when exited (`--rm`).
+- Files in `src/` are persistent.
+
+To manually remove the image:
+
 ```powershell
-docker image rm my-dev-container
+docker image rm pentest-dev
 ```
 
 That's it. Simple and clean.
